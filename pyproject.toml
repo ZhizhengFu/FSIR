@@ -1,0 +1,13 @@
+[project]
+name = "fsir"
+version = "0.1.0"
+description = "fast single image restoration"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "lightning>=2.5.2",
+    "matplotlib>=3.10.3",
+    "torch>=2.7.1",
+    "torchmetrics>=1.7.4",
+    "torchvision>=0.22.1",
+]

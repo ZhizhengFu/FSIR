@@ -1,0 +1,31 @@
+name = "fsir"
+pretrained_path = ""
+save_snapshots = true
+deterministic = false
+seed = 42
+
+[trainer]
+max_epochs = 200000
+log_every_n_steps = 200
+gradient_clip_val = 1.0
+gradient_clip_algorithm = "norm"
+lr = 1e-4
+step_size = 20000
+gamma = 0.7
+
+[datasets]
+batch_size = 32
+num_workers = 4
+pin_memory = true
+
+[datasets.train]
+root_dir = "datasets/test/Set14"
+patch_size = 120
+sf = [1, 2, 3, 4]
+sigma_max = 0.05
+
+[datasets.val]
+root_dir = "datasets/test/Set14"
+
+[datasets.test]
+root_dir = "datasets/test/Set14"
