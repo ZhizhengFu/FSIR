@@ -53,13 +53,13 @@ class FSIRDataset(Dataset):
             sigma = torch.zeros(batch_size, 1, 1, 1)
         else:
             sf = self.opt.sf
-            K = self.opt.kernel
+            K = self.opt.kernel.expand(batch_size, 1, -1, -1)
             sigma = torch.full((batch_size, 1, 1, 1), self.opt.sigma)
 
         H, W = X.shape[-2:]
         H_r, W_r = H % sf, W % sf
         X = X[..., : H - H_r, : W - W_r]
-        return self._process_batch(X, K, sigma, sf)
+        return self._process_batch(X, K, sigma, sf), self.opt.k_idx
 
     @staticmethod
     def _process_batch(X, K, sigma, sf):

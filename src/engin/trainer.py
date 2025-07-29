@@ -20,7 +20,7 @@ class FSIR(L.LightningModule):
         self.mse = nn.MSELoss()
 
     def training_step(self, batch, batch_idx):
-        X, FK, SKX_n, sigma, sf = batch
+        X, FK, SKX_n, sigma, sf, _ = batch
         output = self.model(FK, SKX_n, sigma, sf)
 
         loss = self.mse(X, output)
@@ -33,7 +33,7 @@ class FSIR(L.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        X, FK, SKX_n, sigma, sf = batch
+        X, FK, SKX_n, sigma, sf, _ = batch
         output = self.model(FK, SKX_n, sigma, sf)
 
         mse_loss = self.mse(X, output)
@@ -61,7 +61,7 @@ class FSIR(L.LightningModule):
         return mse_loss
 
     def test_step(self, batch, batch_index):
-        X, FK, SKX_n, sigma, sf = batch
+        X, FK, SKX_n, sigma, sf, k_idx = batch
         output = self.model(FK, SKX_n, sigma, sf)
 
         mse_loss = self.mse(X, output)
@@ -74,6 +74,19 @@ class FSIR(L.LightningModule):
         self.log("test_psnr", psnr_value, batch_size=batch_size)
         self.log("test_ssim", ssim_value, batch_size=batch_size)
         self.log("test_snr", snr_value, batch_size=batch_size)
+
+        save_dir = (
+            Path(self.logger.save_dir)  # type: ignore
+            / self.logger.name  # type: ignore
+            / f"version_{self.logger.version}"  # type: ignore
+            / "test_images"
+            / f"sigma_{sigma.item()}"
+            / f"sf_{sf}-k_{k_idx}"
+        )
+        save_dir.mkdir(parents=True, exist_ok=True)
+
+        save_image(output, save_dir / f"sr_{batch_index}.png")
+        save_image(X, save_dir / f"hr_{batch_index}.png")
 
         return mse_loss
 
@@ -96,12 +109,13 @@ class FSIR(L.LightningModule):
         return total_grad_norm / num_params
 
     def on_before_batch_transfer(self, batch, dataloader_idx):
-        X, FK, SKX_n, sigma, sf = batch
+        (X, FK, SKX_n, sigma, sf), k_idx = batch
         batch = (
             X.to(self.device),
             FK.to(self.device),
             SKX_n.to(self.device),
             sigma.to(self.device),
             sf,
+            k_idx,
         )
         return batch
