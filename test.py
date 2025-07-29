@@ -5,7 +5,7 @@ from src.config import Config
 from src.data import get_dataloader
 from src.utils import init_seed
 
-checkpoint_path = "/home/test/fuzz/code/FSIR/logs/FSIR/version_0/checkpoints/model-epoch=141-val_psnr=26.92.ckpt"
+checkpoint_path = "weights/example.ckpt"
 TYPE = "bicubic"
 SIGMA = [0.00]
 SF = [2, 3, 4]
