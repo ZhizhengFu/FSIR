@@ -99,5 +99,6 @@ class FSIR(L.LightningModule):
             FK.to(self.device),
             SKX_n.to(self.device),
             sigma.to(self.device),
+            sf,
         )
         return batch

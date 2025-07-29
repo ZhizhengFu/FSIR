@@ -24,13 +24,14 @@ checkpoint_callback = ModelCheckpoint(
     save_weights_only=True,
 )
 trainer = lightning.Trainer(
-    callbacks=[checkpoint_callback],
     logger=CSVLogger("logs", name="FSIR"),
     # logger=TensorBoardLogger("logs", name="FSIR"),
+    callbacks=[checkpoint_callback],
     max_epochs=config.trainer.max_epochs,
     log_every_n_steps=config.trainer.log_every_n_steps,
     gradient_clip_val=config.trainer.gradient_clip_val,
     gradient_clip_algorithm=config.trainer.gradient_clip_algorithm,
 )
+
 model = FSIR(config.trainer)
 trainer.fit(model=model, train_dataloaders=train_loader, val_dataloaders=val_loader)

@@ -29,7 +29,7 @@ class TVNet(nn.Module):
         FDVC, FDHC = FDV.conj(), FDH.conj()
         F2DV, F2DH = FDV.abs().pow(2), FDH.abs().pow(2)
         F2D = F2DH + F2DV + 1e-8
-        gam = 1e-2 * alpha.pow(2) / 0.0005
+        gam = 1e-2 * alpha * alpha / 0.0005
         U1, U2 = X.clone(), X.clone()
         D1, D2 = torch.zeros_like(X), torch.zeros_like(X)
 
@@ -101,7 +101,9 @@ class FSIRNet(nn.Module):
 
     def forward(self, FK, SKX_n, sigma, sf):
         FCK, F2K = FK.conj(), FK.abs().pow(2)
-        Ky = torch.zeros([*FK.shape], device=SKX_n.device, dtype=SKX_n.dtype)
+        Ky = torch.zeros([*FK.shape], device=SKX_n.device, dtype=SKX_n.dtype).repeat(
+            1, 3, 1, 1
+        )
         Ky[..., ::sf, ::sf] = SKX_n
         FCKFKy = FCK * fft2(Ky)
 

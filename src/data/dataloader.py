@@ -1,4 +1,3 @@
-import multiprocessing
 from typing import Literal
 from src.config import Config
 from .dataset import FSIRDataset
@@ -14,5 +13,4 @@ def get_dataloader(opt: Config, mode: Literal["train", "val", "test"]) -> DataLo
         num_workers=opt.num_workers,
         collate_fn=dataset.collate_fn,
         shuffle=(mode == "train"),
-        multiprocessing_context=multiprocessing.get_context("spawn"),
     )
