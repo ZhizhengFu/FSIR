@@ -24,8 +24,9 @@ class FSIR(L.LightningModule):
         output = self.model(FK, SKX_n, sigma, sf)
 
         loss = self.mse(X, output)
+        batch_size = X.size(0)
 
-        self.log("train_mse_loss", loss, prog_bar=True)
+        self.log("train_mse_loss", loss, prog_bar=True, batch_size=batch_size)
         self.log("train_mean_grad_norm", self.log_gradient_norms(), prog_bar=True)
         self.log("train_lr", self.lr_schedulers().get_last_lr()[0], prog_bar=True)  # type: ignore
 
@@ -39,11 +40,12 @@ class FSIR(L.LightningModule):
         psnr_value = self.psnr(X, output)
         ssim_value = self.ssim(X, output)
         snr_value = self.snr(X, output)
+        batch_size = X.size(0)
 
-        self.log("val_mse_loss", mse_loss, prog_bar=True)
-        self.log("val_psnr", psnr_value, prog_bar=True)
-        self.log("val_ssim", ssim_value, prog_bar=True)
-        self.log("val_snr", snr_value, prog_bar=True)
+        self.log("val_mse_loss", mse_loss, prog_bar=True, batch_size=batch_size)
+        self.log("val_psnr", psnr_value, prog_bar=True, batch_size=batch_size)
+        self.log("val_ssim", ssim_value, prog_bar=True, batch_size=batch_size)
+        self.log("val_snr", snr_value, prog_bar=True, batch_size=batch_size)
 
         save_dir = (
             Path(self.logger.save_dir)  # type: ignore
@@ -66,11 +68,12 @@ class FSIR(L.LightningModule):
         psnr_value = self.psnr(X, output)
         ssim_value = self.ssim(X, output)
         snr_value = self.snr(X, output)
+        batch_size = X.size(0)
 
-        self.log("test_mse_loss", mse_loss)
-        self.log("test_psnr", psnr_value)
-        self.log("test_ssim", ssim_value)
-        self.log("test_snr", snr_value)
+        self.log("test_mse_loss", mse_loss, batch_size=batch_size)
+        self.log("test_psnr", psnr_value, batch_size=batch_size)
+        self.log("test_ssim", ssim_value, batch_size=batch_size)
+        self.log("test_snr", snr_value, batch_size=batch_size)
 
         return mse_loss
 
