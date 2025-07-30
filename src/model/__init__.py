@@ -1,3 +1,3 @@
-from .model import FSIRNet
+from .model import FSIRNet, DataNet, TVNet
 
-__all__ = ["FSIRNet"]
+__all__ = ["FSIRNet", "DataNet", "TVNet"]

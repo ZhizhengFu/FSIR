@@ -8,7 +8,7 @@ from src.utils import splits_and_mean
 
 class TVNet(nn.Module):
     def __init__(self):
-        super(TVNet, self).__init__()
+        super().__init__()
 
     def forward(
         self,
@@ -102,7 +102,7 @@ class FSIRNet(nn.Module):
     def forward(self, FK, SKX_n, sigma, sf):
         FCK, F2K = FK.conj(), FK.abs().pow(2)
         Ky = torch.zeros([*FK.shape], device=SKX_n.device, dtype=SKX_n.dtype).repeat(
-            1, 3, 1, 1
+            1, SKX_n.size(1), 1, 1
         )
         Ky[..., ::sf, ::sf] = SKX_n
         FCKFKy = FCK * fft2(Ky)

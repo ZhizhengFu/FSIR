@@ -2,8 +2,8 @@ import torch
 import lightning
 from src.engin import FSIR
 from src.config import Config
-from src.data import get_dataloader
 from src.utils import init_seed
+from src.data import get_dataloader
 
 checkpoint_path = "weights/example.ckpt"
 TYPE = "bicubic"

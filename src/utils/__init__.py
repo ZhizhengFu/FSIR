@@ -4,6 +4,7 @@ from .utils import (
     save_code_snapshot,
     KernelSynthesizer,
     splits_and_mean,
+    imshow,
 )
 
 __all__ = [
@@ -12,4 +13,5 @@ __all__ = [
     "save_code_snapshot",
     "KernelSynthesizer",
     "splits_and_mean",
+    "imshow",
 ]

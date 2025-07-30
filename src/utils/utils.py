@@ -3,9 +3,11 @@ import torch
 import shutil
 import random
 import numpy as np
+from typing import List
 from pathlib import Path
 from datetime import datetime
 import torch.nn.functional as F
+from matplotlib import pyplot as plt
 
 
 def save_code_snapshot(dst_dir: Path, config_name: str) -> None:
@@ -37,6 +39,28 @@ def splits_and_mean(a, sf):
     b = torch.stack(a.chunk(sf, 2), 4)
     b = torch.cat(b.chunk(sf, 3), 4)
     return b.mean(-1)
+
+
+def imshow(images: List[torch.Tensor], titles: List[str] | None = None) -> None:
+    num_images = len(images)
+    if titles is None:
+        titles = [""] * num_images
+    elif len(titles) != num_images:
+        raise ValueError("Number of images and titles must match.")
+    np_images = [image.squeeze(0).permute(1, 2, 0).cpu().numpy() for image in images]
+    cols = min(num_images, 5)
+    rows = (num_images + cols - 1) // cols
+    _, axes = plt.subplots(rows, cols, figsize=(5 * cols, 2.3 * rows))
+    axes = np.array(axes).reshape(-1)
+    for ax, img, title in zip(axes, np_images, titles):
+        ax.imshow(img)
+        if title != "":
+            ax.set_title(title)
+        ax.axis("off")
+    for ax in axes[num_images:]:
+        ax.remove()
+    plt.tight_layout()
+    plt.show()
 
 
 class KernelSynthesizer:
