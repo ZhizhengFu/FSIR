@@ -28,7 +28,7 @@ for sigma in SIGMA:
         for k_idx, kernel in enumerate(K):
             if TYPE == "bicubic" and k_idx != sf_idx:
                 continue
-            kernel = K[sf_idx]
+            kernel = K[k_idx]
             datasets_config.test.sigma = sigma
             datasets_config.test.sf = sf
             datasets_config.test.kernel = kernel
