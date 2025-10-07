@@ -1,12 +1,13 @@
 import torch
 import lightning
 from lightning.pytorch.loggers import CSVLogger
+from pathlib import Path
 from src.engin import FSIR
 from src.config import Config
 from src.utils import init_seed
 from src.data import get_dataloader
 
-checkpoint_path = "weights/example.ckpt"
+checkpoint_path = ""
 TYPE = "bicubic"
 SIGMA = [0.00]
 SF = [2, 3, 4]
@@ -23,7 +24,7 @@ init_seed(config.seed, config.deterministic)
 model = FSIR.load_from_checkpoint(checkpoint_path, config=config.trainer)
 datasets_config = config.datasets
 trainer = lightning.Trainer(
-    logger=CSVLogger("logs_test", name=f"test_{TYPE}")
+    logger=CSVLogger("logs_test", name=f"{Path(checkpoint_path).name}_{TYPE}")
 )
 
 for sigma in SIGMA:
