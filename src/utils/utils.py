@@ -35,12 +35,6 @@ def init_seed(seed: int = 0, deterministic: bool = False) -> None:
     torch.backends.cudnn.deterministic = deterministic
 
 
-def splits_and_mean(a, sf):
-    b = torch.stack(a.chunk(sf, 2), 4)
-    b = torch.cat(b.chunk(sf, 3), 4)
-    return b.mean(-1)
-
-
 def imshow(images: List[torch.Tensor], titles: List[str] | None = None) -> None:
     num_images = len(images)
     if titles is None:

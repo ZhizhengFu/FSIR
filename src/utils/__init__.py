@@ -3,7 +3,6 @@ from .utils import (
     init_seed,
     save_code_snapshot,
     KernelSynthesizer,
-    splits_and_mean,
     imshow,
 )
 
@@ -12,6 +11,5 @@ __all__ = [
     "init_seed",
     "save_code_snapshot",
     "KernelSynthesizer",
-    "splits_and_mean",
     "imshow",
 ]

@@ -4,7 +4,7 @@ from pathlib import Path
 import torch.nn.functional as F
 from torch.fft import fft2, ifft2
 from torch.utils.data import Dataset
-from torchvision.io import read_image
+from torchvision.io import ImageReadMode, decode_image
 from torchvision import transforms as T
 from src.config import Config
 from src.utils import KernelSynthesizer
@@ -15,15 +15,15 @@ class FSIRDataset(Dataset):
         self.opt = opt
         self.mode = mode
         self.transform = self._get_transform()
-        self.k_synthesizer = KernelSynthesizer()
-        self.img_paths = list(Path(opt.root_dir).glob("*"))
-        self.val_kernel = torch.load("src/kernels/kernels_12.pt")[0]
+        self.k_synthesizer = KernelSynthesizer() if mode == "train" else None
+        self.img_path = list(Path(opt.img_path).glob("*"))
+        self.kernel_list = torch.load(opt.kernel_path) if mode != "train" else None
 
     def __len__(self):
-        return len(self.img_paths)
+        return len(self.img_path)
 
     def __getitem__(self, idx):
-        img = read_image(self.img_paths[idx]) / 255
+        img = decode_image(self.img_path[idx],ImageReadMode.RGB) / 255
         return self.transform(img) if self.transform else img
 
     def _get_transform(self) -> T.Compose | None:
@@ -38,38 +38,40 @@ class FSIRDataset(Dataset):
         )
 
     def collate_fn(self, batch):
-        X = torch.stack(batch)
+        x = torch.stack(batch)
         batch_size = len(batch)
 
         if self.mode == "train":
-            sf = random.choice(self.opt.sf)
+            sf = random.choice(self.opt.sf_list)
+            sigma = torch.empty(batch_size, 1, 1, 1).uniform_(0, self.opt.sigma_max)
             k_type = random.choice(["gaussian", "motion"])
             kernel_func = getattr(self.k_synthesizer, f"gen_{k_type}_kernel")
-            K = torch.stack([kernel_func() for _ in range(batch_size)]).unsqueeze(1)
-            sigma = torch.empty(batch_size, 1, 1, 1).uniform_(0, self.opt.sigma_max)
-        elif self.mode == "val":
-            sf = 3
-            K = self.val_kernel.expand(batch_size, 1, -1, -1)
-            sigma = torch.zeros(batch_size, 1, 1, 1)
+            kernel = torch.stack([kernel_func() for _ in range(batch_size)]).unsqueeze(1)
         else:
             sf = self.opt.sf
-            K = self.opt.kernel.expand(batch_size, 1, -1, -1)
             sigma = torch.full((batch_size, 1, 1, 1), self.opt.sigma)
-
-        H, W = X.shape[-2:]
-        H_r, W_r = H % sf, W % sf
-        X = X[..., : H - H_r, : W - W_r]
-        return self._process_batch(X, K, sigma, sf), self.opt.k_idx
+            kernel = self.kernel_list[self.opt.k_idx].expand(batch_size, 1, -1, -1) if self.kernel_list else self.opt.kernel.expand(batch_size, 1, -1, -1)
+        
+        return self.image_degradation(x, kernel, sf, sigma)
 
     @staticmethod
-    def _process_batch(X, K, sigma, sf):
-        psf_h, psf_w = K.shape[-2:]
-        target_h, target_w = X.shape[-2:]
-        padding = (0, target_w - psf_w, 0, target_h - psf_h)
-        otf = F.pad(K, padding).double()
-        shifts = (-(psf_h // 2), -(psf_w // 2))
-        FK = fft2(otf.roll(shifts, (-2, -1)))
-        KX = ifft2(fft2(X) * FK).real
-        SKX = KX[..., ::sf, ::sf]
-        SKX_n = SKX + torch.randn_like(SKX) * sigma
-        return X, FK, SKX_n, sigma, sf
+    def image_degradation(x, kernel, sf, sigma):
+        """
+        y = skx+n
+        
+        :param x: Description
+        :param kernel: Description
+        :param sf: Description
+        :param sigma: Description
+        """
+        H, W = x.shape[-2:]
+        x = x[..., : H // sf * sf, : W //sf *sf]
+        kh, kw = kernel.shape[-2:]
+        padding = (0, W - kw, 0, H - kh)
+        kernel = F.pad(kernel, padding).double()
+        shifts = (-(kh // 2), -(kw // 2))
+        Fk = fft2(kernel.roll(shifts, (-2, -1)))
+        kx = ifft2(fft2(x) * Fk).real
+        skx = kx[..., ::sf, ::sf]
+        y = skx + torch.randn_like(skx) * sigma
+        return x, Fk, y, sigma, sf

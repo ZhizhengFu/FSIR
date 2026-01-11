@@ -3,8 +3,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.fft import fft2, ifft2
 from .backbone import ResUNet
-from src.utils import splits_and_mean
 
+def splits_and_mean(a, sf):
+    b = torch.stack(a.chunk(sf, 2), 4)
+    b = torch.cat(b.chunk(sf, 3), 4)
+    return b.mean(-1)
 
 class TVNet(nn.Module):
     def __init__(self):
