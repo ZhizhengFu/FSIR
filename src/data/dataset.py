@@ -23,7 +23,7 @@ class FSIRDataset(Dataset):
         return len(self.img_path)
 
     def __getitem__(self, idx):
-        img = decode_image(self.img_path[idx],ImageReadMode.RGB) / 255
+        img = decode_image(self.img_path[idx], ImageReadMode.RGB) / 255
         return self.transform(img) if self.transform else img
 
     def _get_transform(self) -> T.Compose | None:
@@ -46,26 +46,30 @@ class FSIRDataset(Dataset):
             sigma = torch.empty(batch_size, 1, 1, 1).uniform_(0, self.opt.sigma_max)
             k_type = random.choice(["gaussian", "motion"])
             kernel_func = getattr(self.k_synthesizer, f"gen_{k_type}_kernel")
-            kernel = torch.stack([kernel_func() for _ in range(batch_size)]).unsqueeze(1)
+            kernel = torch.stack([kernel_func() for _ in range(batch_size)])[None]
         else:
             sf = self.opt.sf
             sigma = torch.full((batch_size, 1, 1, 1), self.opt.sigma)
-            kernel = self.kernel_list[self.opt.k_idx].expand(batch_size, 1, -1, -1) if self.kernel_list else self.opt.kernel.expand(batch_size, 1, -1, -1)
-        
+            kernel = (
+                self.kernel_list[self.opt.k_idx].expand(batch_size, 1, -1, -1)
+                if self.kernel_list
+                else self.opt.kernel.expand(batch_size, 1, -1, -1)
+            )
+
         return self.image_degradation(x, kernel, sf, sigma)
 
     @staticmethod
     def image_degradation(x, kernel, sf, sigma):
         """
         y = skx+n
-        
+
         :param x: Description
         :param kernel: Description
         :param sf: Description
         :param sigma: Description
         """
         H, W = x.shape[-2:]
-        x = x[..., : H // sf * sf, : W //sf *sf]
+        x = x[..., : H // sf * sf, : W // sf * sf]
         kh, kw = kernel.shape[-2:]
         padding = (0, W - kw, 0, H - kh)
         kernel = F.pad(kernel, padding).double()

@@ -35,4 +35,9 @@ trainer = lightning.Trainer(
 )
 model = FSIR(config.trainer)
 ckpt_path = Path(ckpt_path) if ckpt_path else None
-trainer.fit(model=model, train_dataloaders=train_loader, val_dataloaders=val_loader, ckpt_path=ckpt_path)
+trainer.fit(
+    model=model,
+    train_dataloaders=train_loader,
+    val_dataloaders=val_loader,
+    ckpt_path=ckpt_path,
+)

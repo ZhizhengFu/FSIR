@@ -71,7 +71,7 @@ class FSIR(L.LightningModule):
         self.log("test_psnr", psnr_value, batch_size=batch_size)
         self.log("test_ssim", ssim_value, batch_size=batch_size)
 
-        if self.curr_sf!=0 and self.curr_sf == sf:
+        if self.curr_sf != 0 and self.curr_sf == sf:
             self.k_idx += 1
         else:
             self.k_idx = 1
