@@ -72,7 +72,8 @@ class FSIR(L.LightningModule):
         self.log("test_ssim", ssim_value, batch_size=batch_size)
 
         if self.curr_sf != 0 and self.curr_sf == sf:
-            self.k_idx += 1
+            if batch_index == 0:
+                self.k_idx += 1
         else:
             self.k_idx = 1
         self.curr_sf = sf
@@ -86,8 +87,8 @@ class FSIR(L.LightningModule):
         )
         save_dir.mkdir(parents=True, exist_ok=True)
 
-        save_image(x_est, save_dir / f"sr_{batch_index}.png")
-        save_image(x, save_dir / f"hr_{batch_index}.png")
+        save_image(x_est, save_dir / f"sr_{batch_index + 1}.png")
+        save_image(x, save_dir / f"hr_{batch_index + 1}.png")
 
         return mse_loss
 

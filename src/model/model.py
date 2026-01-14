@@ -1,82 +1,69 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.fft import fft2, ifft2
-from .backbone import ResUNet
 
 
-def splits_and_mean(a, sf):
-    b = torch.stack(a.chunk(sf, 2), 4)
-    b = torch.cat(b.chunk(sf, 3), 4)
-    return b.mean(-1)
+def frequency_downsample(x: torch.Tensor, scale_factor: int):
+    x = torch.stack(x.chunk(scale_factor, dim=2), 4)
+    x = torch.cat(x.chunk(scale_factor, dim=3), 4)
+    return x.mean(-1).repeat(1, 1, scale_factor, scale_factor)
 
 
-class TVNet(nn.Module):
-    def __init__(self):
+class TVRestorer(nn.Module):
+    def __init__(self, num_iters: int = 50):
         super().__init__()
+        self.num_iters = num_iters
 
-    def forward(
-        self,
-        SKX_n,
-        FK,
-        FCK,
-        F2K,
-        FCKFKy,
-        sf,
-        alpha,
-        maxiter=2,
-    ):
-        X = F.interpolate(SKX_n, scale_factor=sf, mode="nearest")
-        DH, DV = torch.zeros_like(X), torch.zeros_like(X)
+    def forward(self, STy, Fk, sf, alpha=1e-6, gam=0.1):
+        FSTy = fft2(STy)
+        Fr = Fk.conj() * FSTy / (frequency_downsample(Fk.abs().pow(2), sf) + alpha)
+        predicted_image = ifft2(Fr).real
+
+        DH = torch.zeros_like(predicted_image)
+        DV = torch.zeros_like(predicted_image)
         DH[..., 0, 0], DH[..., 0, 1] = 1, -1
         DV[..., 0, 0], DV[..., 1, 0] = 1, -1
         FDV, FDH = fft2(DV), fft2(DH)
-        FDVC, FDHC = FDV.conj(), FDH.conj()
-        F2DV, F2DH = FDV.abs().pow(2), FDH.abs().pow(2)
-        F2D = F2DH + F2DV + 1e-8
-        gam = 1e-2 * alpha * alpha / 0.0005
-        U1, U2 = X.clone(), X.clone()
-        D1, D2 = torch.zeros_like(X), torch.zeros_like(X)
+        FDVConj, FDHConj = FDV.conj(), FDH.conj()
+        FD2 = FDV.abs().pow(2) + FDH.abs().pow(2) + 1e-8
 
-        for _ in range(maxiter):
-            V1, V2 = U1 - D1, U2 - D2
-            FV1, FV2 = alpha * FDHC * fft2(V1), alpha * FDVC * fft2(V2)
-            FR = FCKFKy + FV1 + FV2
-            _FKFR_, _F2K_ = (
-                splits_and_mean((FK * FR) / F2D, sf),
-                splits_and_mean(F2K / F2D, sf),
+        U1, U2 = predicted_image.clone(), predicted_image.clone()
+        D1, D2 = torch.zeros_like(predicted_image), torch.zeros_like(predicted_image)
+
+        x_old = predicted_image.clone()
+        t_old = 1.0
+
+        for k_iter in range(self.num_iters):
+            gam_k = gam * 0.5 ** (k_iter / self.num_iters)
+
+            Fr = Fk.conj() * FSTy + alpha * (
+                FDHConj * fft2(U1 - D1) + FDVConj * fft2(U2 - D2)
             )
-            _FKFR_FMdiv_FK2_FM = _FKFR_ / (_F2K_ + alpha)
-            FCK_FKFR_FMdiv_FK2_FM = FCK * _FKFR_FMdiv_FK2_FM.repeat(1, 1, sf, sf)
-            FX = (FR - FCK_FKFR_FMdiv_FK2_FM) / (alpha * F2D)
-            X = ifft2(FX).real
+            Fr = (
+                Fr
+                - Fk.conj()
+                * frequency_downsample(Fk * Fr / FD2, sf)
+                / (frequency_downsample(Fk.abs().pow(2) / FD2, sf) + alpha)
+            ) / (alpha * FD2)
 
-            DhX, DvX = ifft2(FX * FDH).real, ifft2(FX * FDV).real
-            NU1, NU2 = DhX + D1, DvX + D2
-            NU = torch.sqrt(NU1**2 + NU2**2 + 1e-8)
+            predicted_image_new = ifft2(Fr).real
 
-            A = torch.maximum(torch.zeros_like(NU), NU - gam) + 1e-8
-            A = A / (A + gam)
+            t_new = (1 + (1 + 4 * t_old**2) ** 0.5) / 2
+            predicted_image = predicted_image_new + ((t_old - 1) / t_new) * (
+                predicted_image_new - x_old
+            )
+            x_old = predicted_image_new.clone()
+            t_old = t_new
+
+            DHr, DVr = ifft2(Fr * FDH).real, ifft2(Fr * FDV).real
+            NU1, NU2 = DHr + D1, DVr + D2
+            NU = torch.sqrt(NU1.pow(2) + NU2.pow(2) + 1e-8)
+            A = torch.maximum(torch.zeros_like(NU), NU - gam_k) + 1e-8
+            A = A / (A + gam_k)
             U1, U2 = A * NU1, A * NU2
-            D1, D2 = D1 + (DhX - U1), D2 + (DvX - U2)
+            D1, D2 = D1 + (DHr - U1), D2 + (DVr - U2)
 
-        return X
-
-
-class DataNet(nn.Module):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, X, alpha, sf, FK, FCK, F2K, FCKFKy):
-        FR = FCKFKy + fft2(alpha * X)
-        _FKFR_, _F2K_ = (
-            splits_and_mean(FK * FR, sf),
-            splits_and_mean(F2K, sf),
-        )
-        _FKFR_FMdiv_FK2_FM = _FKFR_ / (_F2K_ + alpha)
-        FCK_FKFR_FMdiv_FK2_FM = FCK * _FKFR_FMdiv_FK2_FM.repeat(1, 1, sf, sf)
-        FX = (FR - FCK_FKFR_FMdiv_FK2_FM) / alpha
-        return ifft2(FX).real
+        return predicted_image
 
 
 class HyperNet(nn.Module):
@@ -98,46 +85,12 @@ class HyperNet(nn.Module):
 class FSIRNet(nn.Module):
     def __init__(self):
         super().__init__()
-        self.iter_num = 8
-        self.v = TVNet()
-        self.d = DataNet()
-        self.p = ResUNet()
-        self.h = HyperNet(in_nc=2, channel=64, out_nc=2 * self.iter_num)
+        self.init_net = TVRestorer()
 
-    def forward(self, FK, SKX_n, sigma, sf):
-        FCK, F2K = FK.conj(), FK.abs().pow(2)
-        Ky = torch.zeros([*FK.shape], device=SKX_n.device, dtype=SKX_n.dtype).repeat(
-            1, SKX_n.size(1), 1, 1
+    def forward(self, Fk, y, sigma, sf):
+        STy = torch.zeros(
+            (y.shape[0], 3, y.shape[2] * sf, y.shape[3] * sf), device=y.device
         )
-        Ky[..., ::sf, ::sf] = SKX_n
-        FCKFKy = FCK * fft2(Ky)
-
-        X = self.v(
-            SKX_n,
-            FK,
-            FCK,
-            F2K,
-            FCKFKy,
-            sf,
-            0.0005,
-        )
-
-        ab = self.h(torch.cat((sigma, torch.full_like(sigma, sf)), 1))
-
-        for i in range(self.iter_num):
-            X = self.d(
-                X,
-                ab[:, i : i + 1],
-                sf,
-                FK,
-                FCK,
-                F2K,
-                FCKFKy,
-            ).float()
-            X = X + self.p(
-                torch.cat(
-                    (X, ab[:, self.iter_num + i].unsqueeze(1).expand_as(X[:, :1])),
-                    1,
-                )
-            )
-        return X
+        STy[..., ::sf, ::sf] = y
+        x = self.init_net(STy, Fk, sf)
+        return x

@@ -17,7 +17,7 @@ class FSIRDataset(Dataset):
         self.transform = self._get_transform()
         self.k_synthesizer = KernelSynthesizer() if mode == "train" else None
         self.img_path = list(Path(opt.img_path).glob("*"))
-        self.kernel_list = torch.load(opt.kernel_path) if mode != "train" else None
+        self.kernel_list = torch.load(opt.kernel_path) if opt.kernel_path else None
 
     def __len__(self):
         return len(self.img_path)
@@ -69,7 +69,9 @@ class FSIRDataset(Dataset):
         :param sigma: Description
         """
         H, W = x.shape[-2:]
-        x = x[..., : H // sf * sf, : W // sf * sf]
+        H = H // sf * sf
+        W = W // sf * sf
+        x = x[..., :H, :W]
         kh, kw = kernel.shape[-2:]
         padding = (0, W - kw, 0, H - kh)
         kernel = F.pad(kernel, padding).double()
