@@ -11,8 +11,6 @@ CONFIG_NAME = "config"
 ckpt_path = ""
 config = Config.from_toml(f"{CONFIG_NAME}.toml")
 init_seed(config.seed, config.deterministic)
-if config.save_snapshots:
-    save_code_snapshot(Path("code_snapshots") / get_cur_time(), CONFIG_NAME)
 
 train_loader = get_dataloader(config.datasets, "train")
 val_loader = get_dataloader(config.datasets, "val")
@@ -23,9 +21,12 @@ checkpoint_callback = ModelCheckpoint(
     save_top_k=5,
     filename="model-{epoch:02d}-{val_psnr:.2f}",
 )
+logger = CSVLogger("logs", name="FSIR", version=get_cur_time())
+# logger=TensorBoardLogger("logs", name="FSIR")
+if config.save_snapshots:
+    save_code_snapshot((logger.log_dir/Path("code_snapshots")), CONFIG_NAME)
 trainer = lightning.Trainer(
-    logger=CSVLogger("logs", name="FSIR"),
-    # logger=TensorBoardLogger("logs", name="FSIR"),
+    logger=logger,
     callbacks=[checkpoint_callback],
     max_epochs=-1,
     max_steps=-1,

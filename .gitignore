@@ -12,7 +12,6 @@ wheels/
 .ropeproject
 .ruff_cache
 logs/
+logs_test/
 weights/
 datasets/
-code_snapshots/
-lightning_logs/
